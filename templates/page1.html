@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movie Title Word Cloud</title>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdn.rawgit.com/jasondavies/d3-cloud/v1.2.0/build/d3.layout.cloud.js"></script>
+<style>
+    body {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        margin: 0;
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin-bottom: 10px;
+    }
+
+    p {
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 18px;
+        opacity: 0.9;
+    }
+
+    .container {
+        width: 90%;
+        max-width: 1000px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .word-cloud-text {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .tooltip {
+        position: absolute;
+        background-color: rgba(255,255,255,0.95);
+        border: solid 1px #333;
+        border-radius: 5px;
+        padding: 10px;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 100;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        max-width: 200px;
+        transition: opacity 0.3s;
+        color: #333;
+    }
+
+    .controls {
+        text-align: center;
+        margin: 20px 0;
+    }
+
+    .controls button {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        margin: 0 10px;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .controls button:hover {
+        background: rgba(255,255,255,0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+    }
+
+    .navbar {
+        width: 100%;
+        background: rgba(0,0,0,0.2);
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        border-radius: 50px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    .navbar a {
+        color: white;
+        text-decoration: none;
+        padding: 15px 20px;
+        transition: all 0.3s ease;
+        font-weight: bold;
+    }
+
+    .navbar a:hover {
+        background-color: rgba(255,255,255,0.2);
+        color: #FF4500;
+    }
+
+    .info-box {
+        background: rgba(255,255,255,0.15);
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+        text-align: center;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.1);
+        font-size: 14px;
+        max-width: 800px;
+    }
+</style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Home</a>
+        <a href="/page1" class="active">Word Cloud</a>
+        <a href="/page2">Force Graph</a>
+        <a href="/page3">Heatmap</a>
+    </div>
+
+    <h1>Movie Title Word Frequency</h1>
+    <p>Explore the most common words used in movie titles</p>
+
+    <div class="controls">
+        <button id="zoom-in">Zoom In</button>
+        <button id="zoom-out">Zoom Out</button>
+        <button id="reset">Reset</button>
+    </div>
+
+    <div class="container" id="word-cloud-container">
+        <!-- Word cloud will be rendered here -->
+    </div>
+
+    <div class="info-box">
+        <p>This visualization shows the frequency of words in movie titles from the Cornell Movie Dialogs Corpus. 
+        The size of each word represents how often it appears. Hover over words to see exact frequency counts and click for more details.</p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Set the dimensions and margins
+        var margin = { top: 20, right: 20, bottom: 20, left: 20 },
+            width = 900 - margin.left - margin.right,
+            height = 650 - margin.top - margin.bottom;
+        
+        // Append an SVG container
+        var svg = d3.select('#word-cloud-container').append('svg')
+            .attr('width', width)
+            .attr('height', height)
+            .append('g')
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        
+        // Create tooltip
+        var tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Load data from the JSON file
+        d3.json("/WC").then(function (data) {
+            // Set up the D3 Word Cloud layout
+            var layout = d3.layout.cloud()
+                .size([width - 40, height - 40])
+                .words(data.map(function (d) { return { text: d.Word, size: +d.Frequency, originalSize: +d.Frequency }; }))
+                .padding(8)
+                .rotate(function () { return ~~(Math.random() * 2) * 50; })
+                .fontSize(function (d) { return Math.min(d.size * 2.5 + 14, 80); }) // Larger font sizes
+                .spiral("archimedean")
+                .on('end', draw);
+        
+            // Define a vibrant color scale
+            var colorScale = d3.scaleSequential()
+                .domain([d3.min(data, d => +d.Frequency), d3.max(data, d => +d.Frequency)])
+                .interpolator(d3.interpolateViridis);
+        
+            // Start the layout
+            layout.start();
+        
+            // Define the draw function to render the word cloud
+            function draw(words) {
+                // Create a background rectangle
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "rgba(255,255,255,0.05)")
+                    .attr("rx", 10)
+                    .attr("ry", 10);
+
+                var wordCloudGroup = svg.append("g")
+                    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+            
+                wordCloudGroup.selectAll("text")
+                    .data(words)
+                    .enter().append("text")
+                    .classed("word-cloud-text", true)
+                    .style("font-size", function (d) { return d.size + "px"; })
+                    .style("fill", function (d) { return colorScale(d.originalSize); })
+                    .style("font-family", "'Segoe UI', sans-serif")
+                    .style("font-weight", function (d) { return d.originalSize > 10 ? "bold" : "normal"; })
+                    .style("text-shadow", "1px 1px 3px rgba(0,0,0,0.3)")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", function (d) {
+                        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+                    })
+                    .text(function (d) { return d.text; })
+                    .on("mouseover", function (event, d) {
+                        // Highlight on hover
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .style("font-size", function(d) { return (d.size * 1.2) + "px"; })
+                            .style("fill", "#FF4500")
+                            .style("text-shadow", "2px 2px 4px rgba(0,0,0,0.5)");
+                        
+                        // Show tooltip
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 0.95);
+                        
+                        tooltip.html("<strong>Word:</strong> " + d.text + "<br/><strong>Frequency:</strong> " + d.originalSize)
+                            .style("left", (d3.event.pageX + 10) + "px")
+                            .style("top", (d3.event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function (event, d) {
+                        // Reset on mouseout
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .style("font-size", function(d) { return d.size + "px"; })
+                            .style("fill", function (d) { return colorScale(d.originalSize); })
+                            .style("text-shadow", "1px 1px 3px rgba(0,0,0,0.3)");
+                        
+                        // Hide tooltip
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    })
+                    .on("click", function(event, d) {
+                        // Highlight this word and reset others
+                        wordCloudGroup.selectAll(".word-cloud-text")
+                            .style("fill", function(otherD) { 
+                                return otherD.text === d.text ? "#FF4500" : colorScale(otherD.originalSize);
+                            })
+                            .style("font-weight", function(otherD) {
+                                return otherD.text === d.text ? "bold" : (otherD.originalSize > 10 ? "bold" : "normal");
+                            });
+                        
+                        // Update info text
+                        d3.select(".info-box p").html(
+                            "The word <strong style='color:#FF4500'>" + d.text + "</strong> appears " + 
+                            d.originalSize + " times in movie titles. " +
+                            "This makes it one of the " + (d.originalSize > 10 ? "most" : "moderately") + 
+                            " common words in the dataset."
+                        );
+                    });
+            }
+
+            // Set up zoom behavior
+            var zoomBehavior = d3.zoom()
+                .scaleExtent([0.5, 3])
+                .on("zoom", function() {
+                    svg.attr("transform", d3.event.transform);
+                });
+            
+            svg.call(zoomBehavior);
+            
+            // Add event listeners for buttons
+            document.getElementById('zoom-in').addEventListener('click', function() {
+                svg.transition()
+                    .duration(750)
+                    .call(zoomBehavior.scaleBy, 1.3);
+            });
+            
+            document.getElementById('zoom-out').addEventListener('click', function() {
+                svg.transition()
+                    .duration(750)
+                    .call(zoomBehavior.scaleBy, 0.7);
+            });
+            
+            document.getElementById('reset').addEventListener('click', function() {
+                svg.transition()
+                    .duration(750)
+                    .call(zoomBehavior.transform, d3.zoomIdentity);
+                
+                // Reset all words to original appearance
+                svg.selectAll(".word-cloud-text")
+                    .style("fill", function (d) { return colorScale(d.originalSize); })
+                    .style("font-weight", function (d) { return d.originalSize > 10 ? "bold" : "normal"; });
+                
+                // Reset info text
+                d3.select(".info-box p").html(
+                    "This visualization shows the frequency of words in movie titles from the Cornell Movie Dialogs Corpus. " +
+                    "The size of each word represents how often it appears. Hover over words to see exact frequency counts and click for more details."
+                );
+            });
+
+            // Smooth zooming animation for initial display
+            function startAnimation() {
+                var currentTransform = [width / 2, height / 2, height];
+                
+                function transition() {
+                    const targetScale = 0.9;
+                    const i = d3.interpolateZoom(
+                        currentTransform, 
+                        [width / 2, height / 2, height / targetScale]
+                    );
+                    
+                    svg.transition()
+                        .delay(500)
+                        .duration(i.duration * 1.5)
+                        .attrTween("transform", () => t => {
+                            currentTransform = i(t);
+                            return `translate(${width/2},${height/2})scale(${height/currentTransform[2]})translate(${-currentTransform[0]},${-currentTransform[1]})`;
+                        });
+                }
+                
+                transition();
+            }
+            
+            // Start the animation
+            startAnimation();
+            
+        }).catch(function (error) {
+            console.error('Error loading JSON file:', error);
+            d3.select('#word-cloud-container')
+                .append("p")
+                .style("color", "white")
+                .style("text-align", "center")
+                .text("Error loading data: " + error);
+        });
+    });
+    </script>
+</body>
+</html>

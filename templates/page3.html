@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Sentiment Analysis</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        p {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255,255,255,0.95);
+            border: solid 1px #333;
+            border-radius: 5px;
+            padding: 10px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            font-size: 14px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            max-width: 250px;
+            transition: opacity 0.3s;
+            color: #333;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .controls button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            margin: 0 10px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .controls button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+        }
+
+        .navbar {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 15px 20px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .navbar a:hover {
+            background-color: rgba(255,255,255,0.2);
+            color: #FF4500;
+        }
+
+        .info-box {
+            background: rgba(255,255,255,0.15);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 14px;
+            max-width: 800px;
+        }
+
+        .legend {
+            background: rgba(255,255,255,0.15);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .axis text {
+            fill: white;
+            font-size: 12px;
+        }
+
+        .axis line, .axis path {
+            stroke: rgba(255,255,255,0.3);
+        }
+
+        .cell-highlight {
+            stroke: #FF4500 !important;
+            stroke-width: 2px !important;
+        }
+
+        .character-selected {
+            font-weight: bold;
+            color: #FF4500;
+        }
+
+        /* Search and filter controls */
+        .search-box {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50px;
+            color: white;
+            width: 250px;
+            margin-right: 10px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .search-box::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .search-box:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+        }
+
+        .filter-dropdown {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50px;
+            color: white;
+            margin-right: 10px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .filter-dropdown:focus {
+            outline: none;
+        }
+
+        option {
+            background-color: #2575fc;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Home</a>
+        <a href="/page1">Word Cloud</a>
+        <a href="/page2">Force Graph</a>
+        <a href="/page3" class="active">Heatmap</a>
+    </div>
+
+    <h1>Character Sentiment Analysis</h1>
+    <p>Explore the emotional patterns in character dialogues</p>
+
+    <div class="controls">
+        <input type="text" class="search-box" id="search-character" placeholder="Search character...">
+        <select class="filter-dropdown" id="sentiment-filter">
+            <option value="all">All Sentiments</option>
+            <option value="positive">Positive Only</option>
+            <option value="negative">Negative Only</option>
+        </select>
+        <button id="zoom-in">Zoom In</button>
+        <button id="zoom-out">Zoom Out</button>
+        <button id="reset">Reset</button>
+    </div>
+
+    <div class="container" id="heatmap-container">
+        <!-- Heatmap will be rendered here -->
+    </div>
+
+    <div class="info-box">
+        <p>This heatmap visualizes sentiment analysis of character dialogues. Each cell represents the frequency of 
+        positive or negative sentiment expressed by a character. Darker colors indicate stronger sentiment patterns. 
+        Hover over cells for details and use controls to filter the data.</p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Set dimensions and margins
+        const margin = { top: 60, right: 100, bottom: 40, left: 120 },
+            width = 1000 - margin.left - margin.right,
+            height = 600 - margin.top - margin.bottom;
+        
+        // Create SVG container
+        const svg = d3.select('#heatmap-container').append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g')
+            .attr('transform', `translate(${margin.left}, ${margin.top})`);
+        
+        // Create tooltip
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip");
+        
+        // Variables to store data
+        let heatmapData;
+        let combinedData = [];
+        let filteredData = [];
+        let x, y, colorScalePositive, colorScaleNegative;
+        let cells;
+        
+        // Add title to the heatmap
+        svg.append('text')
+            .attr('class', 'chart-title')
+            .attr('x', width / 2)
+            .attr('y', -30)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '18px')
+            .style('font-weight', 'bold')
+            .text('Character Sentiment Analysis');
+        
+        // Load data
+        d3.json("/HM").then(function (data) {
+            heatmapData = data;
+            
+            // Process the data
+            processData();
+            
+            // Create the heatmap
+            createHeatmap();
+            
+            // Set up event listeners
+            document.getElementById('search-character').addEventListener('input', filterData);
+            document.getElementById('sentiment-filter').addEventListener('change', filterData);
+            document.getElementById('zoom-in').addEventListener('click', zoomIn);
+            document.getElementById('zoom-out').addEventListener('click', zoomOut);
+            document.getElementById('reset').addEventListener('click', resetHeatmap);
+            
+        }).catch(function (error) {
+            console.error('Error loading heatmap data:', error);
+            d3.select('#heatmap-container')
+                .append("p")
+                .style("color", "white")
+                .style("text-align", "center")
+                .text("Error loading data: " + error);
+        });
+        
+        function processData() {
+            // Process positive sentiment data
+            Object.entries(heatmapData.Positive).forEach(([character, count]) => {
+                if (count > 0) {
+                    combinedData.push({
+                        Sentiment: "Positive",
+                        Character: character,
+                        Count: count
+                    });
+                }
+            });
+            
+            // Process negative sentiment data
+            Object.entries(heatmapData.Negative).forEach(([character, count]) => {
+                if (count > 0) {
+                    combinedData.push({
+                        Sentiment: "Negative",
+                        Character: character,
+                        Count: count
+                    });
+                }
+            });
+            
+            // Sort and limit data for initial view
+            combinedData.sort((a, b) => b.Count - a.Count);
+            
+            // Set initial filtered data
+            filteredData = [...combinedData.slice(0, 50)]; // Show top 50 by default
+        }
+        
+        function createHeatmap() {
+            // Get unique characters and sentiments
+            const sentiments = ["Positive", "Negative"];
+            const characters = [...new Set(filteredData.map(d => d.Character))];
+            
+            // Create scales
+            x = d3.scaleBand()
+                .domain(sentiments)
+                .range([0, width])
+                .padding(0.1);
+            
+            y = d3.scaleBand()
+                .domain(characters)
+                .range([0, height])
+                .padding(0.1);
+            
+            // Create color scales for positive and negative sentiment
+            colorScalePositive = d3.scaleSequential()
+                .domain([0, d3.max(combinedData.filter(d => d.Sentiment === "Positive"), d => d.Count)])
+                .interpolator(d3.interpolate("#c7e9c0", "#006d2c")); // Light to dark green
+            
+            colorScaleNegative = d3.scaleSequential()
+                .domain([0, d3.max(combinedData.filter(d => d.Sentiment === "Negative"), d => d.Count)])
+                .interpolator(d3.interpolate("#fee0d2", "#de2d26")); // Light to dark red
+            
+            // Add X and Y axes
+            svg.append('g')
+                .attr('class', 'axis x-axis')
+                .attr('transform', `translate(0, ${height})`)
+                .call(d3.axisBottom(x).tickSize(0))
+                .select('.domain').remove();
+            
+            svg.append('g')
+                .attr('class', 'axis y-axis')
+                .call(d3.axisLeft(y).tickSize(0))
+                .select('.domain').remove();
+            
+            // Style axis labels
+            svg.selectAll('.x-axis text')
+                .style('font-weight', 'bold')
+                .style('font-size', '14px')
+                .style('fill', (d, i) => i === 0 ? "#006d2c" : "#de2d26");
+            
+            // Add background grid
+            const backgroundGrid = svg.append('g')
+                .attr('class', 'background-grid');
+            
+            characters.forEach((character, i) => {
+                backgroundGrid.append('rect')
+                    .attr('x', 0)
+                    .attr('y', y(character))
+                    .attr('width', width)
+                    .attr('height', y.bandwidth())
+                    .attr('fill', i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)');
+            });
+            
+            // Create cell group
+            const cellGroup = svg.append('g')
+                .attr('class', 'cell-group');
+            
+            // Add the heatmap cells
+            cells = cellGroup.selectAll('.heatmap-cell')
+                .data(filteredData)
+                .enter()
+                .append('rect')
+                .attr('class', 'heatmap-cell')
+                .attr('x', d => x(d.Sentiment))
+                .attr('y', d => y(d.Character))
+                .attr('width', x.bandwidth())
+                .attr('height', y.bandwidth())
+                .attr('rx', 4)
+                .attr('ry', 4)
+                .style('fill', d => getColor(d))
+                .style('stroke', 'white')
+                .style('stroke-width', 1)
+                .style('opacity', 0.85)
+                .on('mouseover', cellMouseOver)
+                .on('mouseout', cellMouseOut)
+                .on('click', cellClick);
+            
+            // Add character labels inside cells for better readability
+            cellGroup.selectAll('.cell-label')
+                .data(filteredData.filter(d => d.Count > 10)) // Only add labels for significant counts
+                .enter()
+                .append('text')
+                .attr('class', 'cell-label')
+                .attr('x', d => x(d.Sentiment) + x.bandwidth() / 2)
+                .attr('y', d => y(d.Character) + y.bandwidth() / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .style('font-size', '9px')
+                .style('font-weight', 'bold')
+                .style('fill', d => d.Count > 20 ? 'white' : 'black')
+                .style('pointer-events', 'none')
+                .style('text-shadow', '0px 0px 2px rgba(0,0,0,0.5)')
+                .text(d => d.Character.split(' ')[0]); // Just the first name
+            
+            // Add legend
+            createLegend();
+            
+            // Set up zoom behavior
+            const zoomBehavior = d3.zoom()
+                .scaleExtent([0.5, 5])
+                .on('zoom', (event) => {
+                    cellGroup.attr('transform', event.transform);
+                    svg.select('.axis.x-axis').call(
+                        d3.axisBottom(x).tickSize(0).scale(
+                            event.transform.rescaleX(x)
+                        )
+                    );
+                    svg.select('.axis.y-axis').call(
+                        d3.axisLeft(y).tickSize(0).scale(
+                            event.transform.rescaleY(y)
+                        )
+                    );
+                });
+            
+            d3.select('#heatmap-container svg').call(zoomBehavior);
+        }
+        
+        function getColor(d) {
+            if (d.Sentiment === "Positive") {
+                return colorScalePositive(d.Count);
+            } else {
+                return colorScaleNegative(d.Count);
+            }
+        }
+        
+        function cellMouseOver(event, d) {
+            // Highlight cell
+            d3.select(this)
+                .style('stroke', '#FF4500')
+                .style('stroke-width', 3)
+                .style('opacity', 1);
+            
+            // Show tooltip
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', 0.95);
+            
+            // Customize tooltip content
+            const sentimentColor = d.Sentiment === 'Positive' ? '#006d2c' : '#de2d26';
+            tooltip.html(`
+                <div style="font-weight:bold; font-size:14px; margin-bottom:5px; color:#333;">
+                    ${d.Character}
+                </div>
+                <div style="margin-bottom:3px;">
+                    <span style="font-weight:bold;">Sentiment:</span> 
+                    <span style="color:${sentimentColor}; font-weight:bold;">${d.Sentiment}</span>
+                </div>
+                <div>
+                    <span style="font-weight:bold;">Count:</span> ${d.Count}
+                </div>
+            `)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 10) + 'px');
+            
+            // Update info box
+            d3.select('.info-box p').html(`
+                Character <strong>${d.Character}</strong> expressed ${d.Sentiment.toLowerCase()} sentiment
+                <strong>${d.Count}</strong> times in their dialogues. 
+                ${d.Sentiment === 'Positive' 
+                    ? 'This indicates more optimistic, happy, or favorable language.'
+                    : 'This indicates more pessimistic, critical, or unfavorable language.'}
+            `);
+        }
+        
+        function cellMouseOut(event, d) {
+            // Reset cell appearance if not selected
+            if (!d3.select(this).classed('cell-highlight')) {
+                d3.select(this)
+                    .style('stroke', 'white')
+                    .style('stroke-width', 1)
+                    .style('opacity', 0.85);
+            }
+            
+            // Hide tooltip
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0);
+                
+            // Reset info box
+            d3.select('.info-box p').html(`
+                This heatmap visualizes sentiment analysis of character dialogues. Each cell represents the frequency of 
+                positive or negative sentiment expressed by a character. Darker colors indicate stronger sentiment patterns. 
+                Hover over cells for details and use controls to filter the data.
+            `);
+        }
+        
+        function cellClick(event, d) {
+            // Toggle selection
+            const isSelected = d3.select(this).classed('cell-highlight');
+            
+            // Reset all cells first
+            cells.classed('cell-highlight', false)
+                .style('stroke', 'white')
+                .style('stroke-width', 1)
+                .style('opacity', 0.85);
+            
+            // If was not selected, select it now
+            if (!isSelected) {
+                d3.select(this).classed('cell-highlight', true)
+                    .style('stroke', '#FF4500')
+                    .style('stroke-width', 3)
+                    .style('opacity', 1);
+                
+                // Update info box with persistent information
+                d3.select('.info-box p').html(`
+                    <span class="character-selected">${d.Character}</span> 
+                    shows a strong pattern of ${d.Sentiment.toLowerCase()} sentiment in dialogues
+                    (${d.Count} instances). This character's emotional tone tends to be 
+                    ${d.Sentiment === 'Positive' ? 'optimistic and favorable' : 'critical or negative'}.
+                    Click another cell or the Reset button to clear this selection.
+                `);
+            }
+        }
+        
+        function createLegend() {
+            // Create legend container
+            const legendGroup = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width + 20}, 0)`);
+            
+            // Add legend title
+            legendGroup.append('text')
+                .attr('x', 0)
+                .attr('y', -10)
+                .style('font-size', '12px')
+                .style('font-weight', 'bold')
+                .text('Sentiment Intensity');
+            
+            // Create positive gradient
+            const posGradient = svg.append('defs')
+                .append('linearGradient')
+                .attr('id', 'positive-gradient')
+                .attr('x1', '0%')
+                .attr('y1', '100%')
+                .attr('x2', '0%')
+                .attr('y2', '0%');
+                
+            posGradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', '#c7e9c0');
+                
+            posGradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', '#006d2c');
+            
+            // Create negative gradient
+            const negGradient = svg.append('defs')
+                .append('linearGradient')
+                .attr('id', 'negative-gradient')
+                .attr('x1', '0%')
+                .attr('y1', '100%')
+                .attr('x2', '0%')
+                .attr('y2', '0%');
+                
+            negGradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', '#fee0d2');
+                
+            negGradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', '#de2d26');
+            
+            // Add positive gradient rectangle
+            legendGroup.append('rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', 20)
+                .attr('height', 100)
+                .style('fill', 'url(#positive-gradient)');
+                
+            // Add positive scale labels
+            legendGroup.append('text')
+                .attr('x', 25)
+                .attr('y', 10)
+                .style('font-size', '10px')
+                .text('High Positive');
+                
+            legendGroup.append('text')
+                .attr('x', 25)
+                .attr('y', 95)
+                .style('font-size', '10px')
+                .text('Low Positive');
+            
+            // Add positive title
+            legendGroup.append('text')
+                .attr('x', 10)
+                .attr('y', 50)
+                .attr('text-anchor', 'middle')
+                .attr('transform', 'rotate(-90, 10, 50)')
+                .style('font-size', '10px')
+                .style('font-weight', 'bold')
+                .style('fill', '#006d2c')
+                .text('POSITIVE');
+            
+            // Add negative gradient rectangle
+            legendGroup.append('rect')
+                .attr('x', 0)
+                .attr('y', 120)
+                .attr('width', 20)
+                .attr('height', 100)
+                .style('fill', 'url(#negative-gradient)');
+                
+            // Add negative scale labels
+            legendGroup.append('text')
+                .attr('x', 25)
+                .attr('y', 130)
+                .style('font-size', '10px')
+                .text('High Negative');
+                
+            legendGroup.append('text')
+                .attr('x', 25)
+                .attr('y', 215)
+                .style('font-size', '10px')
+                .text('Low Negative');
+            
+            // Add negative title
+            legendGroup.append('text')
+                .attr('x', 10)
+                .attr('y', 170)
+                .attr('text-anchor', 'middle')
+                .attr('transform', 'rotate(-90, 10, 170)')
+                .style('font-size', '10px')
+                .style('font-weight', 'bold')
+                .style('fill', '#de2d26')
+                .text('NEGATIVE');
+        }
+        
+        function filterData() {
+            // Get current filter values
+            const searchTerm = document.getElementById('search-character').value.toLowerCase();
+            const sentimentFilter = document.getElementById('sentiment-filter').value;
+            
+            // Filter data based on search term and sentiment
+            filteredData = combinedData.filter(d => {
+                const matchesSearch = searchTerm === '' || d.Character.toLowerCase().includes(searchTerm);
+                const matchesSentiment = sentimentFilter === 'all' || 
+                                        (sentimentFilter === 'positive' && d.Sentiment === 'Positive') ||
+                                        (sentimentFilter === 'negative' && d.Sentiment === 'Negative');
+                return matchesSearch && matchesSentiment;
+            });
+            
+            // If we have too many results, limit them
+            if (filteredData.length > 100) {
+                filteredData = filteredData.slice(0, 100);
+            }
+            
+            // Update the visualization
+            updateHeatmap();
+        }
+        
+        function updateHeatmap() {
+            // Get unique characters from filtered data
+            const characters = [...new Set(filteredData.map(d => d.Character))];
+            
+            // Update Y scale
+            y.domain(characters);
+            
+            // Update Y axis
+            svg.select('.axis.y-axis')
+                .transition()
+                .duration(500)
+                .call(d3.axisLeft(y).tickSize(0));
+            
+            // Remove old cells
+            svg.selectAll('.heatmap-cell').remove();
+            svg.selectAll('.cell-label').remove();
+            
+            // Update background grid
+            svg.select('.background-grid').remove();
+            const backgroundGrid = svg.append('g')
+                .attr('class', 'background-grid');
+            
+            characters.forEach((character, i) => {
+                backgroundGrid.append('rect')
+                    .attr('x', 0)
+                    .attr('y', y(character))
+                    .attr('width', width)
+                    .attr('height', y.bandwidth())
+                    .attr('fill', i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)');
+            });
+            
+            // Add updated cells
+            cells = svg.select('.cell-group')
+                .selectAll('.heatmap-cell')
+                .data(filteredData)
+                .enter()
+                .append('rect')
+                .attr('class', 'heatmap-cell')
+                .attr('x', d => x(d.Sentiment))
+                .attr('y', d => y(d.Character))
+                .attr('width', x.bandwidth())
+                .attr('height', y.bandwidth())
+                .attr('rx', 4)
+                .attr('ry', 4)
+                .style('fill', d => getColor(d))
+                .style('stroke', 'white')
+                .style('stroke-width', 1)
+                .style('opacity', 0.85)
+                .on('mouseover', cellMouseOver)
+                .on('mouseout', cellMouseOut)
+                .on('click', cellClick);
+            
+            // Add updated labels
+            svg.select('.cell-group')
+                .selectAll('.cell-label')
+                .data(filteredData.filter(d => d.Count > 10))
+                .enter()
+                .append('text')
+                .attr('class', 'cell-label')
+                .attr('x', d => x(d.Sentiment) + x.bandwidth() / 2)
+                .attr('y', d => y(d.Character) + y.bandwidth() / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .style('font-size', '9px')
+                .style('font-weight', 'bold')
+                .style('fill', d => d.Count > 20 ? 'white' : 'black')
+                .style('pointer-events', 'none')
+                .style('text-shadow', '0px 0px 2px rgba(0,0,0,0.5)')
+                .text(d => d.Character.split(' ')[0]);
+            
+            // Update info text
+            const resultCount = filteredData.length;
+            d3.select('.info-box p').html(`
+                Showing ${resultCount} ${resultCount === 1 ? 'result' : 'results'} 
+                ${searchTerm !== '' ? `for "${searchTerm}"` : ''} 
+                ${sentimentFilter !== 'all' ? `with ${sentimentFilter} sentiment` : ''}.
+                Hover over cells for more details.
+            `);
+        }
+        
+        // Zoom functions
+        function zoomIn() {
+            d3.select('#heatmap-container svg')
+                .transition()
+                .duration(750)
+                .call(d3.zoom().scaleBy, 1.3);
+        }
+        
+        function zoomOut() {
+            d3.select('#heatmap-container svg')
+                .transition()
+                .duration(750)
+                .call(d3.zoom().scaleBy, 0.7);
+        }
+        
+        function resetHeatmap() {
+            // Reset search and filters
+            document.getElementById('search-character').value = '';
+            document.getElementById('sentiment-filter').value = 'all';
+            
+            // Reset zoom
+            d3.select('#heatmap-container svg')
+                .transition()
+                .duration(750)
+                .call(d3.zoom().transform, d3.zoomIdentity);
+            
+            // Reprocess data and update display
+            processData();
+            updateHeatmap();
+            
+            // Reset info box
+            d3.select('.info-box p').html(`
+                This heatmap visualizes sentiment analysis of character dialogues. Each cell represents the frequency of 
+                positive or negative sentiment expressed by a character. Darker colors indicate stronger sentiment patterns. 
+                Hover over cells for details and use controls to filter the data.
+            `);
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corpus Movie Dialogue</title>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdn.rawgit.com/jasondavies/d3-cloud/v1.2.0/build/d3.layout.cloud.js"></script>
+
+<style>
+  body {
+      background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      min-height: 100vh;
+
+      h1, h3 {
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+  
+    p {
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 18px;
+        opacity: 0.9;
+    }
+  
+    .link {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+  
+    .node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+        transition: all 0.3s ease;
+    }
+  
+    .word-cloud-text {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+  
+    .tooltip {
+        position: absolute;
+        background-color: rgba(255,255,255,0.95);
+        border: solid 1px #333;
+        border-radius: 5px;
+        padding: 10px;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 100;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        max-width: 250px;
+        transition: opacity 0.3s;
+    }
+  
+    /* Dashboard layout */
+    .graph-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        align-items: flex-start;
+        gap: 20px;
+    }
+  
+    .graph {
+        width: 48%;
+        margin-bottom: 20px;
+        padding: 20px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: all 0.3s ease;
+    }
+  
+    .graph:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    }
+  
+    .graph h3 {
+        margin-top: 0;
+        color: #fff;
+        font-size: 1.4em;
+    }
+  
+    .graph-full {
+        width: 98%;
+        margin-bottom: 20px;
+        padding: 20px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+  
+    /* Responsive layout for smaller screens */
+    @media (max-width: 900px) {
+        .graph {
+            width: 100%;
+        }
+    }
+  
+    /* Enhanced controls */
+    .controls {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+  
+    .controls button, .controls select {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        margin: 0 5px;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+  
+    .controls button:hover, .controls select:hover {
+        background: rgba(255,255,255,0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+    }
+  
+    /* Highlight for linked elements */
+    .highlight {
+        stroke: #FF4500 !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 10px rgba(255,69,0,0.5)) !important;
+    }
+  
+    .text-highlight {
+        fill: #FF4500 !important;
+        font-weight: bold !important;
+        text-shadow: 0 0 5px rgba(255,255,255,0.7) !important;
+    }
+  
+    .cell-highlight {
+        stroke: #FF4500 !important;
+        stroke-width: 2px !important;
+        filter: drop-shadow(0 0 5px rgba(255,69,0,0.5)) !important;
+    }
+  
+    /* Navigation bar */
+    .navbar {
+        overflow: hidden;
+        background: rgba(0,0,0,0.2);
+        border-radius: 50px;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+  
+    .navbar a {
+        float: left;
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 16px 20px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+  
+    .navbar a:hover {
+        background-color: rgba(255,255,255,0.2);
+        color: #FF4500;
+        transform: translateY(-2px);
+    }
+  
+    /* Focus+Context indication */
+    .focus-indicator {
+        filter: drop-shadow(0 0 8px rgba(255,69,0,0.7));
+    }
+  
+    /* Status bar */
+    .status-bar {
+        background: rgba(255,255,255,0.15);
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+        text-align: center;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+  
+    /* Legend styling */
+    .legend {
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px;
+        padding: 8px;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+  }
+</style>
+
+</head>
+<body>
+
+  <div class="navbar">
+    <a href="#">Home</a>
+    <a href="{{ url_for('page1') }}">Word Cloud</a>
+    <a href="{{ url_for('page2') }}">Force Graph</a>
+    <a href="{{ url_for('page3') }}">Heatmap</a>
+  </div>
+
+  <h1>Movie Dialogue Visualization Dashboard</h1>
+  <p>Interactive analysis of movie titles, dialogues, and sentiment</p>
+
+  <div class="controls">
+    <button id="reset-all">Reset All Visualizations</button>
+    <select id="filter-type">
+      <option value="all">All Data</option>
+      <option value="positive">Positive Sentiment</option>
+      <option value="negative">Negative Sentiment</option>
+    </select>
+  </div>
+
+  <div class="graph-container">
+    <div class="graph" id="graph1">
+      <h3>Word Frequency in Movie Titles</h3>
+      <div class="controls">
+        <button id="zoom-in-cloud">Zoom In</button>
+        <button id="zoom-out-cloud">Zoom Out</button>
+      </div>
+      <!-- Word Cloud will be inserted here -->
+    </div>
+
+    <div class="graph" id="graph2">
+      <h3>Sentiment Analysis Heatmap</h3>
+      <div class="controls">
+        <button id="toggle-sentiment">Toggle Sentiment View</button>
+      </div>
+      <!-- Heatmap will be inserted here -->
+    </div>
+
+    <div class="graph-full" id="graph3">
+      <h3>Movie Relationship Network</h3>
+      <div class="controls">
+        <button id="zoom-in-graph">Zoom In</button>
+        <button id="zoom-out-graph">Zoom Out</button>
+        <button id="toggle-layout">Change Layout</button>
+      </div>
+      <!-- Force-Directed Graph will be inserted here -->
+    </div>
+  </div>
+
+  <!-- Add a status bar for context information -->
+  <div class="status-bar">
+    <p id="context-info" style="margin: 0; font-weight: 500;">
+      Hover over elements to see their details. Click to focus and link across visualizations.
+    </p>
+  </div>
+
+  <!-- Data visualization scripts -->
+  <script>
+    // Shared context for brushing and linking
+    const visualizationContext = {
+      selectedWord: null,
+      selectedCharacter: null,
+      selectedSentiment: null,
+      selectedMovie: null,
+      
+      // Update all visualizations based on current selection
+      updateVisualizations: function() {
+        // This function will be called whenever a selection changes
+        // Each visualization script will check this context and highlight relevant elements
+        
+        const contextInfo = document.getElementById('context-info');
+        if (this.selectedWord) {
+          contextInfo.textContent = `Selected word: "${this.selectedWord}" - Exploring related movies and sentiment`;
+        } else if (this.selectedCharacter) {
+          contextInfo.textContent = `Selected character: "${this.selectedCharacter}" - Viewing sentiment patterns`;
+        } else if (this.selectedMovie) {
+          contextInfo.textContent = `Selected movie: "${this.selectedMovie}" - Analyzing keywords and sentiment`;
+        } else if (this.selectedSentiment) {
+          contextInfo.textContent = `Filtering by ${this.selectedSentiment} sentiment`;
+        } else {
+          contextInfo.textContent = 'Hover over elements to see their details. Click to focus and link across visualizations.';
+        }
+        
+        // Dispatch custom events to notify each visualization about the context change
+        document.dispatchEvent(new CustomEvent('contextChanged', { 
+          detail: { context: this }
+        }));
+      },
+      
+      reset: function() {
+        this.selectedWord = null;
+        this.selectedCharacter = null;
+        this.selectedSentiment = null;
+        this.selectedMovie = null;
+        this.updateVisualizations();
+      }
+    };
+    
+    // Event listeners for controls
+    document.getElementById('reset-all').addEventListener('click', function() {
+      visualizationContext.reset();
+    });
+    
+    document.getElementById('filter-type').addEventListener('change', function() {
+      const value = this.value;
+      if (value === 'all') {
+        visualizationContext.selectedSentiment = null;
+      } else {
+        visualizationContext.selectedSentiment = value;
+      }
+      visualizationContext.updateVisualizations();
+    });
+  </script>
+
+  <!-- Load visualization scripts -->
+  <script src="{{ url_for('static', filename='cloud.js') }}"></script>
+  <script src="{{ url_for('static', filename='heat.js') }}"></script>
+  <script src="{{ url_for('static', filename='FDA.js') }}"></script>
+</body>
+</html>
+

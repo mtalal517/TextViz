@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Relationship Network</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        p {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .link {
+            stroke-opacity: 0.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: all 0.3s ease;
+        }
+
+        .node {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255,255,255,0.95);
+            border: solid 1px #333;
+            border-radius: 5px;
+            padding: 10px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            font-size: 14px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            max-width: 250px;
+            transition: opacity 0.3s;
+            color: #333;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .controls button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            margin: 0 10px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .controls button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+        }
+
+        .navbar {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 15px 20px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .navbar a:hover {
+            background-color: rgba(255,255,255,0.2);
+            color: #FF4500;
+        }
+
+        .info-box {
+            background: rgba(255,255,255,0.15);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 14px;
+            max-width: 800px;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.15);
+            padding: 10px;
+            border-radius: 10px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .legend-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .legend-label {
+            font-size: 12px;
+        }
+
+        .node-label {
+            font-size: 8px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 0 3px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Home</a>
+        <a href="/page1">Word Cloud</a>
+        <a href="/page2" class="active">Force Graph</a>
+        <a href="/page3">Heatmap</a>
+    </div>
+
+    <h1>Movie Relationship Network</h1>
+    <p>Explore connections between movies based on similarities</p>
+
+    <div class="controls">
+        <button id="zoom-in">Zoom In</button>
+        <button id="zoom-out">Zoom Out</button>
+        <button id="toggle-layout">Switch Layout</button>
+        <button id="reset">Reset</button>
+    </div>
+
+    <div class="container" id="graph-container">
+        <!-- Force graph will be rendered here -->
+    </div>
+
+    <div class="info-box">
+        <p>This network visualization shows relationships between movies. Each node represents a movie, 
+        and connections indicate similarities. Nodes are colored by primary genre. Drag nodes to explore connections,
+        and hover for details. Use the controls to change view and layout.</p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const width = 1100;
+        const height = 700;
+        
+        // Create SVG container
+        const svg = d3.select('#graph-container').append('svg')
+            .attr('width', '100%')
+            .attr('height', height)
+            .attr('viewBox', `0 0 ${width} ${height}`)
+            .attr('preserveAspectRatio', 'xMidYMid meet');
+        
+        // Add a gradient background
+        const defs = svg.append("defs");
+        const gradient = defs.append("linearGradient")
+            .attr("id", "graph-gradient")
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "100%")
+            .attr("y2", "100%");
+
+        gradient.append("stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "rgba(41, 128, 185, 0.1)");
+
+        gradient.append("stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "rgba(142, 68, 173, 0.1)");
+
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .style("fill", "url(#graph-gradient)")
+            .attr("rx", 15)
+            .attr("ry", 15);
+
+        // Create a group for all elements
+        const g = svg.append("g");
+        
+        // Create tooltip
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip");
+        
+        // Define genre colors
+        const genreColors = {
+            "action": "#e41a1c",      // bright red
+            "comedy": "#377eb8",      // blue
+            "drama": "#4daf4a",       // green
+            "horror": "#984ea3",      // purple
+            "romance": "#ff7f00",     // orange
+            "sci-fi": "#ffff33",      // yellow
+            "thriller": "#a65628",    // brown
+            "adventure": "#f781bf",   // pink
+            "fantasy": "#999999",     // grey
+            "crime": "#8dd3c7",       // turquoise
+            "mystery": "#bebada",     // lavender
+            "biography": "#fb8072",   // salmon
+            "history": "#80b1d3",     // light blue
+            "war": "#fdb462"          // light orange
+        };
+        
+        // Variables to track state
+        let nodes = [];
+        let links = [];
+        let nodeElements;
+        let linkElements;
+        let textElements;
+        let simulation;
+        let currentLayout = "force";
+        
+        // Load and process data
+        d3.json("/FDA").then(function (graph) {
+            nodes = graph.nodes;
+            links = graph.links;
+            
+            // Create link gradients
+            createLinkGradients();
+            
+            // Start simulation
+            initializeSimulation();
+            
+            // Add event listeners for controls
+            document.getElementById('zoom-in').addEventListener('click', zoomIn);
+            document.getElementById('zoom-out').addEventListener('click', zoomOut);
+            document.getElementById('toggle-layout').addEventListener('click', toggleLayout);
+            document.getElementById('reset').addEventListener('click', resetGraph);
+            
+            // Create legend
+            createLegend();
+            
+        }).catch(function (error) {
+            console.error('Error loading graph data:', error);
+            d3.select('#graph-container')
+                .append("p")
+                .style("color", "white")
+                .style("text-align", "center")
+                .text("Error loading data: " + error);
+        });
+        
+        function createLinkGradients() {
+            links.forEach((link, i) => {
+                if (link.source.genres && link.target.genres) {
+                    const sourceGenre = link.source.genres[0]?.toLowerCase();
+                    const targetGenre = link.target.genres[0]?.toLowerCase();
+                    
+                    const gradient = defs.append("linearGradient")
+                        .attr("id", `link-gradient-${i}`)
+                        .attr("gradientUnits", "userSpaceOnUse");
+                    
+                    gradient.append("stop")
+                        .attr("offset", "0%")
+                        .attr("stop-color", genreColors[sourceGenre] || "#999");
+                    
+                    gradient.append("stop")
+                        .attr("offset", "100%")
+                        .attr("stop-color", genreColors[targetGenre] || "#999");
+                }
+            });
+        }
+        
+        function initializeSimulation() {
+            // Set up force simulation
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(60))
+                .force("charge", d3.forceManyBody().strength(-150))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("x", d3.forceX(width / 2).strength(0.1))
+                .force("y", d3.forceY(height / 2).strength(0.1));
+            
+            // Create links
+            linkElements = g.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(links)
+                .enter()
+                .append("line")
+                .attr("class", "link")
+                .attr("stroke", getLinkColor)
+                .attr("stroke-width", d => Math.sqrt(d.weight || 1) * 1.5)
+                .attr("stroke-opacity", 0.7);
+            
+            // Create nodes
+            nodeElements = g.append("g")
+                .attr("class", "nodes")
+                .selectAll("circle")
+                .data(nodes)
+                .enter()
+                .append("circle")
+                .attr("class", "node")
+                .attr("r", getNodeRadius)
+                .attr("fill", getNodeColor)
+                .style("filter", "drop-shadow(0px 2px 2px rgba(0,0,0,0.3))")
+                .call(drag(simulation))
+                .on("mouseover", nodeMouseOver)
+                .on("mouseout", nodeMouseOut)
+                .on("click", nodeClick);
+            
+            // Add node labels
+            textElements = g.append("g")
+                .attr("class", "node-labels")
+                .selectAll("text")
+                .data(nodes)
+                .enter()
+                .append("text")
+                .attr("class", "node-label")
+                .text(d => d.id)
+                .attr("dy", 4)
+                .style("text-anchor", "middle")
+                .style("opacity", 0);
+            
+            // Update positions on each tick
+            simulation.on("tick", ticked);
+        }
+        
+        function getNodeRadius(d) {
+            // Size based on rating if available
+            if (d.rating) {
+                return 3 + (d.rating / 10) * 8;
+            }
+            return 5;
+        }
+        
+        function getNodeColor(d) {
+            // Color based on genre
+            if (d.genres && d.genres.length > 0) {
+                const primaryGenre = d.genres[0].toLowerCase();
+                return genreColors[primaryGenre] || "#999";
+            }
+            return "#999";
+        }
+        
+        function getLinkColor(d, i) {
+            if (d.source.genres && d.target.genres) {
+                return `url(#link-gradient-${i})`;
+            }
+            return "#999";
+        }
+        
+        function ticked() {
+            // Update link positions
+            linkElements
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+            
+            // Update node positions with boundary constraints
+            nodeElements
+                .attr("cx", d => d.x = Math.max(20, Math.min(width - 20, d.x)))
+                .attr("cy", d => d.y = Math.max(20, Math.min(height - 20, d.y)));
+            
+            // Update link gradients
+            links.forEach((link, i) => {
+                d3.select(`#link-gradient-${i}`)
+                    .attr("x1", link.source.x)
+                    .attr("y1", link.source.y)
+                    .attr("x2", link.target.x)
+                    .attr("y2", link.target.y);
+            });
+            
+            // Update text positions
+            textElements
+                .attr("x", d => d.x)
+                .attr("y", d => d.y);
+        }
+        
+        function nodeMouseOver(event, d) {
+            // Highlight node
+            d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("r", getNodeRadius(d) * 1.3)
+                .style("stroke", "#FF4500")
+                .style("stroke-width", 2);
+            
+            // Show tooltip
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", 0.95);
+            
+            // Build tooltip content
+            let content = `<div style="font-weight:bold; font-size:14px; margin-bottom:5px; color:#333;">${d.id}</div>`;
+            
+            if (d.genres && d.genres.length > 0) {
+                content += `<div style="margin-bottom:3px;"><span style="font-weight:bold;">Genres:</span> `;
+                d.genres.forEach((genre, i) => {
+                    const color = genreColors[genre.toLowerCase()] || "#999";
+                    content += `<span style="color:${color}; font-weight:bold;">${genre}</span>`;
+                    if (i < d.genres.length - 1) content += ", ";
+                });
+                content += `</div>`;
+            }
+            
+            if (d.rating) {
+                const ratingColor = d.rating >= 7.5 ? "#4CAF50" : d.rating >= 6 ? "#FFC107" : "#F44336";
+                content += `<div><span style="font-weight:bold;">Rating:</span> <span style="color:${ratingColor}; font-weight:bold;">${d.rating}</span></div>`;
+            }
+            
+            if (d.year) {
+                content += `<div><span style="font-weight:bold;">Year:</span> ${d.year}</div>`;
+            }
+            
+            tooltip.html(content)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 10) + "px");
+            
+            // Find connected nodes and highlight them
+            const connectedLinks = links.filter(link => 
+                link.source.id === d.id || link.target.id === d.id
+            );
+            
+            const connectedNodeIds = connectedLinks.map(link => 
+                link.source.id === d.id ? link.target.id : link.source.id
+            );
+            
+            // Dim non-connected nodes and links
+            nodeElements.style("opacity", node => 
+                node.id === d.id || connectedNodeIds.includes(node.id) ? 1 : 0.2
+            );
+            
+            linkElements.style("opacity", link => 
+                link.source.id === d.id || link.target.id === d.id ? 1 : 0.1
+            );
+            
+            // Show labels for connected nodes
+            textElements.style("opacity", node => 
+                node.id === d.id || connectedNodeIds.includes(node.id) ? 1 : 0
+            );
+            
+            // Update info box
+            d3.select(".info-box p").html(
+                `Selected movie: <strong>${d.id}</strong>` + 
+                (d.genres ? ` (${d.genres.join(", ")})` : "") +
+                (d.rating ? ` with a rating of <strong>${d.rating}</strong>` : "") +
+                `. Connected to ${connectedNodeIds.length} other movies.`
+            );
+        }
+        
+        function nodeMouseOut(event, d) {
+            // Reset node appearance
+            d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("r", getNodeRadius)
+                .style("stroke", "#fff")
+                .style("stroke-width", 1.5);
+            
+            // Hide tooltip
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0);
+            
+            // Reset opacity for all elements
+            nodeElements.style("opacity", 0.8);
+            linkElements.style("opacity", 0.6);
+            textElements.style("opacity", 0);
+            
+            // Reset info box
+            d3.select(".info-box p").html(
+                "This network visualization shows relationships between movies. Each node represents a movie, " +
+                "and connections indicate similarities. Nodes are colored by primary genre. Drag nodes to explore connections, " +
+                "and hover for details. Use the controls to change view and layout."
+            );
+        }
+        
+        function nodeClick(event, d) {
+            // Toggle selection state
+            if (d3.select(this).classed("selected")) {
+                // Deselect node
+                d3.select(this).classed("selected", false);
+                resetGraph();
+            } else {
+                // Deselect all nodes first
+                nodeElements.classed("selected", false);
+                
+                // Select this node
+                d3.select(this).classed("selected", true);
+                
+                // Keep highlight active
+                nodeMouseOver.call(this, event, d);
+                
+                // Prevent event from propagating
+                event.stopPropagation();
+            }
+        }
+        
+        // Drag functions
+        function drag(simulation) {
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+        
+        // Set up zoom behavior
+        const zoomBehavior = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        
+        svg.call(zoomBehavior);
+        
+        function zoomIn() {
+            svg.transition()
+                .duration(750)
+                .call(zoomBehavior.scaleBy, 1.3);
+        }
+        
+        function zoomOut() {
+            svg.transition()
+                .duration(750)
+                .call(zoomBehavior.scaleBy, 0.7);
+        }
+        
+        function resetGraph() {
+            // Reset zoom level
+            svg.transition()
+                .duration(750)
+                .call(zoomBehavior.transform, d3.zoomIdentity);
+            
+            // Reset node appearance
+            nodeElements
+                .classed("selected", false)
+                .style("opacity", 0.8)
+                .attr("r", getNodeRadius)
+                .style("stroke", "#fff")
+                .style("stroke-width", 1.5);
+            
+            // Reset link appearance
+            linkElements
+                .style("opacity", 0.6)
+                .attr("stroke-width", d => Math.sqrt(d.weight || 1) * 1.5);
+            
+            // Hide text labels
+            textElements.style("opacity", 0);
+            
+            // Reset info box
+            d3.select(".info-box p").html(
+                "This network visualization shows relationships between movies. Each node represents a movie, " +
+                "and connections indicate similarities. Nodes are colored by primary genre. Drag nodes to explore connections, " +
+                "and hover for details. Use the controls to change view and layout."
+            );
+        }
+        
+        function toggleLayout() {
+            if (currentLayout === "force") {
+                // Switch to radial layout
+                currentLayout = "radial";
+                
+                // Update button text
+                document.getElementById("toggle-layout").textContent = "Force Layout";
+                
+                // Apply radial layout
+                simulation
+                    .force("r", d3.forceRadial(function(d) {
+                        // Group nodes by first letter of id
+                        const firstLetter = d.id.charAt(0).toLowerCase();
+                        // Map the letter to a radius (a-z -> inner to outer)
+                        const letterIndex = firstLetter.charCodeAt(0) - 97; // 'a' starts at 97
+                        return 100 + letterIndex * 10;
+                    }).strength(0.8))
+                    .alpha(1).restart();
+                
+                // Update info text
+                d3.select(".info-box p").html(
+                    "Radial layout: Movies are arranged in concentric circles based on the first letter of their titles. " +
+                    "This layout helps visualize alphabetical grouping while maintaining connections."
+                );
+            } else {
+                // Switch to force layout
+                currentLayout = "force";
+                
+                // Update button text
+                document.getElementById("toggle-layout").textContent = "Radial Layout";
+                
+                // Remove radial force and apply standard forces
+                simulation
+                    .force("r", null)
+                    .force("charge", d3.forceManyBody().strength(-150))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .force("x", d3.forceX(width / 2).strength(0.1))
+                    .force("y", d3.forceY(height / 2).strength(0.1))
+                    .alpha(1).restart();
+                
+                // Update info text
+                d3.select(".info-box p").html(
+                    "Force layout: Movies position themselves based on their connections. " +
+                    "Closely related movies cluster together to show relationship patterns."
+                );
+            }
+        }
+        
+        function createLegend() {
+            // Get the most common genres
+            const legendGenres = Object.keys(genreColors).slice(0, 8);
+            
+            // Create legend container
+            const legend = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(20, 20)`);
+            
+            // Add background
+            legend.append("rect")
+                .attr("width", 100)
+                .attr("height", legendGenres.length * 20 + 30)
+                .attr("fill", "rgba(0, 0, 0, 0.2)")
+                .attr("rx", 10)
+                .attr("ry", 10);
+            
+            // Add legend title
+            legend.append("text")
+                .attr("class", "legend-title")
+                .attr("x", 50)
+                .attr("y", 20)
+                .attr("text-anchor", "middle")
+                .text("Movie Genres");
+            
+            // Add legend items
+            const legendItems = legend.selectAll(".legend-item")
+                .data(legendGenres)
+                .enter()
+                .append("g")
+                .attr("class", "legend-item")
+                .attr("transform", (d, i) => `translate(15, ${i * 20 + 40})`);
+            
+            // Add color circles
+            legendItems.append("circle")
+                .attr("class", "legend-color")
+                .attr("r", 6)
+                .attr("fill", d => genreColors[d]);
+            
+            // Add labels
+            legendItems.append("text")
+                .attr("class", "legend-label")
+                .attr("x", 15)
+                .attr("y", 4)
+                .text(d => d.charAt(0).toUpperCase() + d.slice(1));
+        }
+    });
+    </script>
+</body>
+</html>
